@@ -1,0 +1,401 @@
+@c Copyright (C) 2023-2024 Free Software Foundation, Inc.
+@c Contributed by Kalray SA.
+@c This is part of the GAS manual.
+@c For copying conditions, see the file as.texinfo.
+@c man end
+
+@ifset GENERIC
+@page
+@node KVX-Dependent
+@chapter KVX Dependent Features
+@end ifset
+
+Labels followed by `::' are extern symbols.
+
+@ifclear GENERIC
+@node Machine Dependencies
+@chapter KVX Dependent Features
+@end ifclear
+
+@cindex KVX support
+@menu
+* KVX Assembler::               KVX Assembler Syntax
+* Instruction Modifiers::       Instruction Modifiers List
+* KVX Options::                 Options
+* KVX Directives::              KVX Machine Directives
+@end menu
+
+@node KVX Assembler
+@section KVX Assembler Syntax
+@cindex KVX Assembler
+
+The assembler syntax of the KVX architecture is loosely based on the syntax of
+the IA-64 assembler.  Most notably, it uses equal signs (`='), question marks
+(`?') and commas (`,') to improve the readability of the instructions.
+Instructions can be suffixed by modifiers which are prefixed by a period (`.'),
+Some instructions have a default modifier, which can be either omitted or
+specified with a period (`.').
+
+The equal sign (`=') denotes an assignment; the question mark (`?') denotes a
+conditional assignment and should be thought as the counter part of the
+condition operator (`?:') of the C language; the comma (`,') is used as a
+separator between the input operands of an instruction.
+
+Some examples:
+
+The instruction @code{addd $r0 = $r1, $r2} takes two input operands `$r1' and
+`$r2' (interpreted as double words (hence the trailing `d' in the instruction
+name)) and stores the sum into the output operand `$r0'.
+
+The instruction @code{cmoved.dqez $r0? $r1 = $r2} is a conditional move and
+takes one input operand `$r2' and moves it into `$r1' if the double word `$r0'
+is not equal to zero.
+
+The instruction `ld' (load double word) accepts one of the following modifiers:
+`.' or nothing for a normal load; `.s' for a load that should not trap even
+when the address is invalid; and `.u' when the load should bypass the cache;
+and `.us' which combines the effect of the two modifiers.
+@example
+# load the value at the address in $r12 and bypass the cache
+ld.u $r0 = 0[$r12]
+# The two following syntax are equivalent and
+# load the value at the address in $r12
+ld $r0 = 0[$r12]
+ld. $r0 = 0[$r12]
+@end example
+
+Most of the time, explicitly specifying the period is pointless because the
+assembler is smart enough to guess that it was omitted.  However, when two
+formats conflict such as instructions which accept a wrapped32 and a signed37,
+the period is needed to disambiguate the format.
+
+@example
+# selects the wrapped32 format
+abdd $r26 = $r51, 4294967295.
+# selects the signed37 format
+abdd $r26 = $r51, 4294967295
+@end example
+
+@node Instruction Modifiers
+@section Instruction Modifiers List
+@cindex Instruction Modifiers
+
+The default modifier (@code{.}) of an instruction is automatically selected and
+can be omitted.
+
+@heading Common to kv3-1 and to kv3-2
+
+@table @dfn
+
+@cindex @samp{comparison} modifier, KVX
+@item comparison
+Accepted values: @code{.ne} (not equal); @code{.eq} (equal); @code{.lt} (less
+than); @code{.ge} greater or equal; @code{.le} lesser or equal; @code{.gt}
+(greater than); @code{.ltu}, @code{.geu}, @code{.leu}, @code{.gtu} perform an
+unsigned comparison; @code{.all} checks if all bits are set in the mask;
+@code{.nall} checks if not all bits are set in the mask; @code{.any} checks if
+any bit is set in the mask; and @code{.none} checks that none of the bits of
+the mask are set.
+
+@cindex @samp{conjugate} modifier, KVX
+@item conjugate
+Accepted values: @code{.} and @code{.c}.
+
+If this modifier is present the conjugate of the first input operand is
+used in the computation.  This modifier is part of the mnemonic on some
+instructions such as MULWC.C.
+
+@cindex @samp{doscale} modifier, KVX
+@item doscale
+Accepted values: @code{.} and @code{.xs}.
+
+All instructions which accept this modifier accept an address of the form
+@code{offset[base]}.  When the modifier is not present the accessed address is
+@code{base + offset}, however when the modifier is present the accessed address
+is @code{base + offset * sizeof(offset)}.
+
+@cindex @samp{floatcomp} modifier, KVX
+@item floatcomp
+Accepted values: @code{.one} (ordered not equal), @code{.ueq} (unordered
+equal), @code{.oeq} (ordered equal), @code{.une} (unordered not equal),
+@code{.olt} (ordered less than), @code{.uge} (unordered greater or equal),
+@code{.uge} (unordered greater or equal), @code{.oge} (ordered greater or
+equal), @code{.ult} (unordered less than).
+
+@c hum... scalarcond
+@cindex @samp{lsucond} modifier, KVX
+@item lsucond
+Accepted values: @code{.dnez} (double not equal to zero), @code{.deqz} (double
+equal to zero), @code{.dltz} (double less than zero), @code{.dgez} (double
+greater or equal to zero), @code{.dlez} (double less or equal to zero),
+@code{.dgtz} (double greater than zero), @code{.odd}  (odd), @code{.even}
+(even), @code{.wnez} (word not equal to zero), @code{.weqz} (word equal to
+zero), @code{.wltz} (word less than zero), @code{.wgez} (word greater or equal
+to zero), @code{.wlez} (word less or equal to zero), @code{.wgtz} (word greater
+than zero).
+
+@cindex @samp{rounding} modifier, KVX
+@item rounding
+Accepted values: @code{.} (use the rounding stored in @code{$cs}), @code{.rn}
+(round to nearest, ties to even), @code{.ru} (round up), @code{.rd} (round
+down), @code{rz} (round towards zero).
+
+@cindex @samp{silent} modifier, KVX
+@item silent
+Accepted values: @code{.} (no splat), @code{.s} (silent).
+
+This modifier controls whether floating point operations should update the IEEE
+754 flags (stored in @code{$cs}).
+
+@cindex @samp{splat32} modifier, KVX
+@item splat32
+Accepted values: @code{.} (no splat), @code{.@@} (splat).
+
+This modifier goes on an input operand and transforms a 32-bit input operand
+into a 64-bit operand by replicating it twice.
+
+@end table
+
+@heading Only available on kv3-1
+
+@table @dfn
+
+@cindex @samp{rectify} modifier, KVX
+@item rectify
+Available values: @code{.} (none), @code{.relu}.
+Applies a ReLU (max between 0 and the argument) to the input operand.
+
+@cindex @samp{roundint} modifier, KVX
+@item roundint
+Available values: @code{.rn} (round to nearest, ties to even), @code{.ru}
+(round up), @code{.rd} (round down), @code{.rz} (round toward zero),
+@code{.rhu} (round half up).
+
+@cindex @samp{saturate} modifier, KVX
+@item saturate
+Available values: @code{.sat} (signed saturated arithmetic), @code{.satu}
+(unsigned saturated arithmetic).
+
+@cindex @samp{speculate} modifier, KVX
+@item speculate
+Available values: @code{.} (nothing), @code{.s} (speculate).
+When the modifier is present the load is non trapping and return 0 on illegal
+addresses.
+
+@end table
+
+@heading Only available on kv3-2
+
+@table @dfn
+
+@cindex @samp{accesses} modifier, KVX
+@item accesses
+Available values: @code{.} (all accesses), @code{.w} (all writes), @code{.r}
+(all reads), @code{.wa} (all write access (asynchronously).
+
+This modifier is available on the fence instruction and the modifier is here to
+filter the types of accesses that the fence should block.
+
+@cindex @samp{boolcas} modifier, KVX
+@item boolcas
+Available values: @code{.v} (valued compare and swap), @code{.} (boolean compare and swap).
+
+This modifier is available on the compare and swap instructions.  The valued
+variant returns the current value in memory while the boolean compare and swap
+only tells whether the compare and swap succeeded.
+
+@cindex @samp{cachelev} modifier, KVX
+@item cachelev
+Available values: @code{.l1} (L1 cache), @code{.l2} (L2 cache).
+
+This modifier is available on instruction which are dedicated to cache
+maintenance, and allows to select the cache.
+
+@cindex @samp{channel} modifier, KVX
+@item channel
+Available values: @code{.f} (forward), @code{.b} (backward).
+
+This modifier is available on instructions dedicated to PE to PE communication,
+and allow to select the communication channel.
+
+@cindex @samp{coherency} modifier, KVX
+@item coherence
+Available values: @code{.} (local), @code{.g} (global).
+
+@cindex @samp{lsomask} modifier, KVX
+@item lsomask
+Available values: @code{.u0}, @code{.u1}, @code{.u2}, @code{.u3}, @code{.mt},
+@code{.mf}, @code{.mtc}, @code{.mfc}.
+
+@cindex @samp{lsumask} modifier, KVX
+@item lsumask
+Available values: @code{.dnez}, @code{.dqez}, @code{.wnez}, @code{.weqz},
+@code{.mt}, @code{.mf}, @code{.mtc}, @code{.mfc}.
+
+@cindex @samp{lsupack} modifier, KVX
+@item lsupack
+Available values: @code{.}, @code{.q}, @code{.d}, @code{.w}, @code{.h},
+@code{.b}.
+
+@cindex @samp{qindex} modifier, KVX
+@item qindex
+Available values: @code{.q0}, @code{.q1}, @code{.q2}, @code{.q3}.
+
+@cindex @samp{shuffleV} modifier, KVX
+@item shuffleV
+Available values: @code{.} (no shuffle), @code{.td} (transpose double words
+4x4).
+
+This modifier is available on xcopyv and xsplatov.  When the modifier is
+present, the input operand (interpreted as a 4x4 matrix of words) is
+transposed.
+
+@cindex @samp{shuffleX} modifier, KVX
+@item shuffleX
+Available values: @code{.} (no shuffle), @code{.zd} (zip double words),
+@code{.ud} (unzip double words), @code{.tq} (transpose quadruple words 2x2),
+@code{.tw} (transpose words 4x4), @code{.zw} (zip words), @code{.uw} (unzip
+words).
+
+This modifier is available on xcopyx and xplatox.  When the modifier is
+present the input operand is shuffled according to the modifier.
+
+@cindex @samp{transpose} modifier, KVX
+@item transpose
+Available values: @code{.} (normal normal), @code{.tn} (transpose normal),
+@code{.nt} (normal transpose), @code{.tt} (transpose transpose).
+
+This modifier specify whether the input operands should be transposed.
+
+@cindex @samp{variant} modifier, KVX
+@item variant
+Available values: @code{.} (cached), @code{.u} (uncached), @code{.s}
+(speculative), @code{.us} (uncached speculative).
+
+This modifier is available on most load instructions and controls the caching
+policy and whether the cache should trap.
+
+@end table
+
+@node KVX Options
+@section Options
+@cindex KVX Options
+@cindex options for KVX
+
+@c man begin OPTIONS
+@table @gcctabopt
+
+@cindex @samp{--dump-insn} option, KVX
+@item --dump-insn
+Dump the full list of instructions.
+
+@cindex @samp{-march} option, KVX
+@item -march=
+The assembler supports the following architectures: kv3-1, kv3-2.
+
+@cindex @samp{--check-resources} option, KVX
+@item --check-resources
+Check that each bundle does not use more resources than available.  This is the
+default.
+
+@cindex @samp{--no-check-resources} option, KVX
+@item --no-check-resources
+Do not check that each bundle does not use more resources than available.
+
+@cindex @samp{--generate-illegal-code} option, KVX
+@item --generate-illegal-code
+For debugging purposes only.  In order to properly work, the bundle is sorted
+with respect to the issues it uses.  If this option is turned on the assembler
+will not sort the bundle instructions and illegal bundles might be formed unless
+they were properly sorted by hand.
+
+@cindex @samp{--dump-table} option, KVX
+@item --dump-table
+Dump the table of opcodes.
+
+@cindex @samp{--mpic} option, KVX
+@cindex @samp{--mPIC} option, KVX
+@item --mpic | --mPIC
+Generate position independent code.
+
+@cindex @samp{--mnopic} option, KVX
+@item --mnopic
+Generate position dependent code.
+
+@cindex @samp{-m32} option, KVX
+@item -m32
+Generate 32-bits code.
+
+@cindex @samp{--all-sfr} option, KVX
+@item --all-sfr
+This switch enables the register class "system register".  This register
+class is used when performing system validation and allows the full class of
+system registers to be used even on instructions that are only valid with some
+specific system registers.
+
+@cindex @samp{--diagnostics} option, KVX
+@item --diagnostics
+Print multi-line errors.  This is the default.
+
+@cindex @samp{--no-diagnostics} option, KVX
+@item --no-diagnostics
+Print succinct diagnostics on one line.
+
+@end table
+@c man end
+
+@node KVX Directives
+@section KVX Machine Directives
+
+@cindex machine directives, KVX
+@cindex KVX machine directives
+@table @code
+
+@cindex @code{.align} directive, KVX
+@item .align ALIGNMENT
+Pad with NOPs until the next boundary with the required ALIGNMENT.
+
+@cindex @code{.dword} directive, KVX
+@item .dword
+Declare a double-word-sized (8 bytes) constant.
+
+@cindex @code{.endp} directive, KVX
+@item .endp [PROC]
+This directive marks the end of the procedure PROC.  The name of the procedure
+is always ignored (it is only here as a visual indicator).
+
+@smallexample
+.proc NAME
+...
+.endp NAME
+@end smallexample
+
+is equivalent to the more traditional
+
+@smallexample
+.type NAME, @@function
+...
+.size NAME,.-NAME
+@end smallexample
+
+@cindex @code{.file} directive, KVX
+@item .file
+This directive is only supported when producing ELF files.
+@pxref{File,,@code{.file}} for details.
+
+@cindex @code{.loc} directive, KVX
+@item .loc FILENO LINENO
+This directive is only supported when producing ELF files.
+@pxref{Line,,@code{.line}} for details.
+
+@cindex @code{.proc} directive, KVX
+@item .proc PROC
+This directive marks the start of procedure, the name of the procedure PROC is
+mandatory and all @code{.proc} directive should be matched by exactly one
+@code{.endp} directive.
+
+@cindex @code{.word} directive, KVX
+@item .word
+Declare a word-sized (4 bytes) constant.
+
+@end table
